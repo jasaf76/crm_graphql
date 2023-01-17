@@ -10,8 +10,9 @@ require("dotenv").config({ path: "variables.env" });
 const createToken = (user, secret, expiresIn) => {
   //console.log(user);
   const { id, name, nachname, email } = user;
+
   return jwt.sign({ id, name, email, nachname }, secret, { expiresIn });
-};
+}
 
 const resolvers = {
   Query: {
@@ -69,7 +70,37 @@ const resolvers = {
         console.log(error);
       }
     },
+    getOrders: async () => {
+      try {
+        const orders = await Order.find({});
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getOrdersBySeller: async (_, {}, ctx) => {
+      try {
+        const orders = await Order.find({ seller: ctx.user.id });
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getOrder: async (_, { id }, ctx) => {
+      // if the order exists or not
+      const order = await Order.findById(id);
+      if (!order) {
+        throw new Error("Order not found");
+      }
+      // if the user who is asking is the seller
+      if (order.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      // return the order
+      return order;
+    }
   },
+
   Mutation: {
     createNewUser: async (_, { input }) => {
       //console.log(input);
@@ -191,15 +222,9 @@ const resolvers = {
       }
       // update client in db
 
-      client = await Client.findOneAndUpdate(
-        {
-          _id: id,
-        },
-        input,
-        {
-          new: true,
-        }
-      );
+      client = await Client.findOneAndUpdate({ _id: id }, input, {
+        new: true,
+      });
       return client;
     },
     deleteClient: async (_, { id }, ctx) => {
@@ -237,7 +262,7 @@ const resolvers = {
           throw new Error(
             `The product: ${product.name} exceeds the available stock`
           );
-        } else {
+        } else if (input.status === "COMPLETED") {
           // update stock
           product.existence = product.existence - element.quantity;
           await product.save();
@@ -250,6 +275,68 @@ const resolvers = {
         const result = await newOrder.save();
         return result;
       } // end for
+    },
+    updateOrder: async (_, { id, input }, ctx) => {
+      const { client } = input;
+      // check if order exists
+      const orderExists = await Order.findById(id);
+      if (!orderExists) {
+        throw new Error("Order does not exists");
+      }
+      // check if client exists
+      const clientExists = await Client.findById(client);
+      if (!clientExists) {
+        throw new Error("Client does not exists");
+      }
+      // check if client and order belongs to seller
+      if (clientExists.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      // check if stock is available
+      if (input.order) {
+        for await (const element of input.order) {
+          const { id } = element;
+
+          const product = await Product.findById(id);
+
+          if (element.quantity > product.existence) {
+            throw new Error(
+              `The product: ${product.name} exceeds the available stock`
+            );
+          } else {
+            // update stock
+            product.existence = product.existence - element.quantity;
+            await product.save();
+          }
+          // update order in db
+         
+        }
+      }
+       const result = await Order.findOneAndUpdate(
+            {
+              _id: id,
+            },
+            input,
+            { new: true }
+          );
+          return result;
+          // end for
+    },
+    deleteOrder: async (_, { id }, ctx) => {
+      // check if order exists
+      const orderExists = await Order.findById(id);
+      if (!orderExists) {
+        throw new Error("Order does not exists");
+      }
+      // check if client and order belongs to seller
+      if (orderExists.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      // delete order in db
+      await Order.findOneAndDelete({
+        _id: id,
+      });
+      return "Order deleted";
     },
   },
 };

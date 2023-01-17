@@ -29,6 +29,7 @@ const server = new ApolloServer({
 });
 
 // Start the server
-server.listen().then(({ url }) => {
-  console.log(`🚁 🇪🇸 🏎️  🏎️ Josés Server läuft in  ${url} 💣`);
-});
+
+server.listen({ port: process.env.PORT || 4000 }).then( ({url}) => {
+    console.log(`Servidor listo en la URL ${url}`)
+} )
