@@ -1,4 +1,8 @@
 const User = require("../models/User");
+const Product = require("../models/Product");
+const Client = require("../models/Clients");
+const Order = require("../models/Order");
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config({ path: "variables.env" });
@@ -14,6 +18,56 @@ const resolvers = {
     getUser: async (_, { token }) => {
       const userId = await jwt.verify(token, process.env.SECRET);
       return userId;
+    },
+    getProducts: async () => {
+      try {
+        const products = await Product.find({});
+        return products;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getClients: async () => {
+      try {
+        const clients = await Client.find({});
+        return clients;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getClient: async (_, { id }, ctx) => {
+      // If the client does not exist or the client is not the seller
+      // if id is not the same as the id of the user
+      const client = await Client.findById(id);
+
+      if (!client) {
+        throw new Error("Client not found");
+      }
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+
+      return client;
+    },
+    getClientBySeller: async (_, {}, ctx) => {
+      try {
+        const client = await Client.find({ seller: ctx.user.id.toString() });
+        return client;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getProductById: async (_, { id }) => {
+      try {
+        const product = await Product.findById(id);
+        if (!product) {
+          throw new Error("Product not found");
+        }
+        console.log(product);
+        return product;
+      } catch (error) {
+        console.log(error);
+      }
     },
   },
   Mutation: {
@@ -56,6 +110,146 @@ const resolvers = {
       return {
         token: createToken(userExists, process.env.SECRET, "24h"),
       };
+    },
+    createNewProduct: async (_, { input }) => {
+      //console.log(input);
+      const { name } = input;
+      // check if product exists
+      const productExists = await Product.findOne({ name });
+      if (productExists) {
+        throw new Error("Product already exists");
+      }
+      // create product in db
+      try {
+        const product = new Product(input);
+        const result = await product.save();
+        return result;
+        //console.log(product);
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    updateProduct: async (_, { id, input }) => {
+      //console.log(input);
+      const { name } = input;
+      // check if product exists
+      const productExists = await Product.findById(id);
+      if (!productExists) {
+        throw new Error("Product does not exists");
+      }
+      // update product in db
+      try {
+        const result = await Product.findOneAndUpdate({ _id: id }, input, {
+          new: true,
+        });
+        return result;
+      } catch (error) {
+        console.log(error);
+      }
+      //console.log(product);
+    },
+    deleteProduct: async (_, { id }) => {
+      //console.log(id);
+      try {
+        await Product.findByIdAndDelete({ _id: id });
+        return "Product deleted";
+      } catch (error) {
+        console.log(error);
+      }
+      //console.log(product);
+    },
+    createNewClient: async (_, { input }, ctx) => {
+      const { email } = input;
+      console.log(ctx);
+      // check if product exists
+      const clientExists = await Client.findOne({ email });
+      if (clientExists) {
+        throw new Error("Client already exists");
+      }
+      const client = new Client(input);
+      //PROduct asign to client
+      client.seller = ctx.user.id;
+
+      // create product in db
+      try {
+        const result = await client.save();
+        return result;
+      } catch (error) {
+        console.log(error);
+      }
+      //console.log(product);
+    },
+    updateClient: async (_, { id, input }, ctx) => {
+      // check if client exists
+      let client = await Client.findById(id);
+      if (!client) {
+        throw new Error("Client does not exists");
+      }
+      // check if client is the seller
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      // update client in db
+
+      client = await Client.findOneAndUpdate(
+        {
+          _id: id,
+        },
+        input,
+        {
+          new: true,
+        }
+      );
+      return client;
+    },
+    deleteClient: async (_, { id }, ctx) => {
+      // check if client exists
+      let client = await Client.findById(id);
+      if (!client) {
+        throw new Error("Client does not exists");
+      }
+
+      // check if client is the seller
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      // delete client in db
+      await Client.findOneAndDelete({ _id: id });
+      return "Client deleted";
+    },
+    createNewOrder: async (_, { input }, ctx) => {
+      const { client } = input;
+      // check if client exists
+      let clientExists = await Client.findById(client);
+
+      if (!clientExists) {
+        throw new Error("Client does not exists");
+      }
+      //check if client is the seller
+      if (clientExists.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      // check if stock is available
+      for await (const element of input.order) {
+        const { id } = element;
+        const product = await Product.findById(id);
+        if (element.quantity > product.existence) {
+          throw new Error(
+            `The product: ${product.name} exceeds the available stock`
+          );
+        } else {
+          // update stock
+          product.existence = product.existence - element.quantity;
+          await product.save();
+        }
+        // create new order in db amd assign to seller
+        const newOrder = new Order(input);
+        // assign seller
+        newOrder.seller = ctx.user.id;
+        // save in db
+        const result = await newOrder.save();
+        return result;
+      } // end for
     },
   },
 };

@@ -1,17 +1,31 @@
 const { ApolloServer } = require("apollo-server");
-const { ApolloServerPluginInlineTrace } = require("apollo-server-core");
+
 const typeDefs = require("./db/schema.gql");
 const resolvers = require("./db/resolvers");
 const connectDB = require("./config/db");
-
+const jwt = require("jsonwebtoken");
+require("dotenv").config({ path: "variables.env" });
 // Connect to the database
 connectDB();
 // Server
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-
-  plugins: [ApolloServerPluginInlineTrace()],
+  context: ({ req }) => {
+    // console.log(req.headers["authorization"]);
+    const token = req.headers["authorization"] || "";
+    if (token) {
+      try {
+        const user = jwt.verify(token, process.env.SECRET);
+        console.log(user);
+        return {
+          user,
+        };
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  },
 });
 
 // Start the server

@@ -1,33 +1,140 @@
 const {  gql } = require("apollo-server");
 
 const typeDefs = gql`
-
- type User {
+# Users
+  type User {
     id: ID
     name: String
     nachname: String
     email: String
     CreatedAt: String
    }
-  input UserInput {
+   # token for auth
+   type Token {
+    token: String
+   }
+   type Query {
+    getUser(token : String!) : User
+   }
+   # Orders
+    type Order {
+      id: ID
+      order: [OrderGroup]
+      total: Float
+      client: ID
+      seller: ID
+      status: OrderStatus
+      CreatedAt: String
+
+    }
+    type OrderGroup {
+      id: ID
+      quantity: Int
+    }
+   # Products
+   type Product {
+    id: ID
+    name: String
+    existence: Int
+    price: Float
+    category: String
+    description: String
+    CreatedAt: String
+   }
+   # Clients
+  type Client {
+    id: ID
+    name: String
+    nachname: String
+    company: String
+    email: String
+    phone: String
+    seller: ID
+    CreatedAt: String
+   }
+   #Users
+   input UserInput {
     name: String!
     nachname: String!
     email: String!
     password: String!
-  }
-  type Token {
-    token: String
-  }
-  input AuthInput {
+   }
+   input AuthInput {
     email: String!
     password: String!
-  }
-  type Query {
-    getUser(token : String) : User
-  }
-  type Mutation {
-    createNewUser(input: UserInput) : User
-    authUser(input: AuthInput) : Token
+   }
+   # PRODUCTS
+   input ProductInput {
+    name: String!
+    existence: Int!
+    price: Float!
+    category: String!
+    description: String!
+   }
+   # Clients
+   input ClientInput {
+    name: String!
+    nachname: String!
+    company: String!
+    email: String!
+    phone: String
+   }
+  # Orders
+   input OrderGroupInput {
+    id: ID
+    quantity: Int
+   }
+
+   input OrderInput {
+    order: [OrderGroupInput]
+    total: Float!
+    client: ID!
+    status: String
+   }
+   enum OrderStatus {
+    PENDING
+    COMPLETED
+    CANCELED
+   }
+    input UpdateClientInput {
+     name: String
+     nachname: String
+     company: String
+     email: String
+     phone: String
+    }
+
+    type Query {
+     # Users
+     getUser(token : String!) : User
+
+      # Products
+     getProducts : [Product]
+     getProductById(id: ID!) : Product
+
+      # Clients
+     getClients : [Client]
+     getClientBySeller : [Client]
+     getClient(id: ID!) : Client
+    }
+ 
+    type Mutation {
+    # Users
+      createNewUser(input: UserInput) : User
+      authUser(input: AuthInput) : Token
+
+     # Products
+      createNewProduct(input: ProductInput) : Product
+      updateProduct(id: ID!, input: ProductInput) : Product
+      deleteProduct(id: ID!) : String
+
+     # Clients
+      createNewClient(input: ClientInput) : Client
+      updateClient(id: ID!, input: UpdateClientInput) : Client
+      deleteClient(id: ID!) : String
+
+     # Orders
+      createNewOrder(input: OrderInput) : Order
   }
  
 `;
