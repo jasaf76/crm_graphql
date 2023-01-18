@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 require("dotenv").config({ path: "variables.env" });
 
 const connectDB = async () => {
- // mongoose.set("strictQuery", false);
+ mongoose.set("strictQuery", false);
   try {
     await mongoose.connect(process.env.DB_MONGO, {
       useNewUrlParser: true,
