@@ -1,8 +1,13 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "./",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "app/*": ["./*"]
     }
-  }
+  },
+  "preset": "airbnb",
+  "excludeFiles": ["node_modules/**"],
+  "fileExtensions": [".js", ".jsx"],
+  "requireDotNotation": null
 }
